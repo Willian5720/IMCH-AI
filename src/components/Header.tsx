@@ -34,6 +34,7 @@ interface HeaderProps {
   onOpenInvitePartner?: () => void;
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
+  onSwitchUser?: (email: string) => void;
   onOpenRegister?: () => void;
 }
 
@@ -56,6 +57,7 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInvitePartner,
   onOpenNotifications,
   unreadNotificationsCount = 0,
+  onSwitchUser,
   onOpenRegister,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -63,14 +65,14 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header className="flex items-center justify-between gap-4 px-4 py-2 border-b border-neutral-200 dark:border-neutral-800/80 bg-white dark:bg-[#08080a] text-neutral-900 dark:text-neutral-100 shrink-0 z-30 transition-colors select-none">
       {/* Left / Navigation: [ IMChat ] [ IMCH AI DEVELOPER ] */}
-      <div className="flex items-center gap-2 sm:gap-4 whitespace-nowrap shrink-0">
+      <div className="flex items-center gap-2 sm:gap-3 whitespace-nowrap shrink-0">
         <button
           type="button"
           onClick={() => onSelectView('chat')}
-          className={`px-3.5 py-1.5 rounded-lg text-lg sm:text-xl font-bold tracking-tight transition-all cursor-pointer ${
+          className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold tracking-wider uppercase transition-all cursor-pointer ${
             currentView === 'chat'
-              ? 'text-neutral-900 dark:text-white bg-neutral-100 dark:bg-[#1a1a20] ring-1 ring-neutral-300 dark:ring-neutral-700 shadow-xs'
-              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-50 dark:hover:bg-neutral-900'
+              ? 'bg-white text-black dark:bg-white dark:text-black shadow-xs ring-1 ring-neutral-300 dark:ring-neutral-300'
+              : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
           }`}
           title="Abrir IMChat"
         >
@@ -82,7 +84,7 @@ export const Header: React.FC<HeaderProps> = ({
           onClick={() => onSelectView('developer')}
           className={`px-3.5 py-1.5 rounded-lg text-xs sm:text-sm font-bold tracking-wider uppercase transition-all cursor-pointer ${
             currentView === 'developer'
-              ? 'bg-blue-600 text-white dark:bg-white dark:text-black shadow-xs ring-1 ring-blue-700 dark:ring-neutral-300'
+              ? 'bg-white text-black dark:bg-white dark:text-black shadow-xs ring-1 ring-neutral-300 dark:ring-neutral-300'
               : 'text-neutral-500 hover:text-neutral-900 dark:text-neutral-400 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800/60'
           }`}
           title="Abrir ambiente IMCH AI Developer"
@@ -146,11 +148,12 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button
                 onClick={onOpenGithub}
-                className="flex items-center gap-1 px-2 py-1 text-xs text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded transition-colors whitespace-nowrap cursor-pointer"
-                title="GitHub"
+                className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-neutral-700 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 rounded-lg transition-colors whitespace-nowrap cursor-pointer border border-neutral-300 dark:border-neutral-800"
+                title="Conectar ao GitHub e Exportar Website"
               >
-                <Github className="w-3.5 h-3.5" />
-                <span className="hidden lg:inline text-[11px]">Git</span>
+                <Github className="w-3.5 h-3.5 text-neutral-800 dark:text-neutral-200" />
+                <span className="inline text-[11px] font-mono">GitHub</span>
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" title="Conexão com GitHub ativa" />
               </button>
             </div>
 
@@ -217,32 +220,24 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="text-[10px] text-neutral-400 uppercase font-bold sm:hidden">IA</span>
         </button>
 
-        {/* SMS / Notifications & Invites icon button in IMCH AI Developer */}
-        {currentView === 'developer' && (
-          <button
-            type="button"
-            onClick={onOpenNotifications}
-            className="relative p-1.5 rounded-lg text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-            title={unreadNotificationsCount > 0 ? `${unreadNotificationsCount} nova(s) mensagem/convite SMS` : 'Mensagens & Convites de Colaboração (SMS)'}
-          >
-            <MessageSquare className="w-4 h-4" />
-            {unreadNotificationsCount > 0 && (
-              <span className="absolute -top-1 -right-1 flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs animate-pulse">
-                {unreadNotificationsCount}
-              </span>
-            )}
-          </button>
-        )}
+        {/* SMS / Notifications icon button next to profile */}
+        <button
+          type="button"
+          onClick={onOpenNotifications}
+          className="relative p-1.5 rounded-lg text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white hover:bg-neutral-100 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
+          title={unreadNotificationsCount > 0 ? `${unreadNotificationsCount} nova(s) mensagem` : 'Mensagens'}
+        >
+          <MessageSquare className="w-4 h-4" />
+          {unreadNotificationsCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex min-w-[16px] h-4 px-1 items-center justify-center rounded-full bg-red-600 text-[10px] font-bold text-white shadow-xs animate-pulse">
+              {unreadNotificationsCount}
+            </span>
+          )}
+        </button>
 
         {/* User Account Menu / Login Button */}
         {user ? (
           <div className="relative flex items-center gap-2">
-            {/* Private Workspace indicator badge */}
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium shadow-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Área Privada: <strong>{user.name.split(' ')[0]}</strong></span>
-            </div>
-
             <button
               type="button"
               onClick={() => setIsUserMenuOpen(!isUserMenuOpen)}
@@ -266,9 +261,6 @@ export const Header: React.FC<HeaderProps> = ({
                   <div className="text-[11px] text-neutral-500 truncate">
                     {user.email}
                   </div>
-                  <div className="mt-1 flex items-center gap-1 text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">
-                    <span>🔒 Área de Trabalho Privada Isolada</span>
-                  </div>
                   <div className="mt-2 flex items-center justify-between">
                     <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-400">Plano:</span>
                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
@@ -281,39 +273,6 @@ export const Header: React.FC<HeaderProps> = ({
                   </div>
                 </div>
 
-                {/* Convidar Parceiro (Comunidade & Colaboração) */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    onOpenInvitePartner?.();
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-blue-50 dark:hover:bg-blue-950/40 text-blue-600 dark:text-blue-400 font-semibold transition-colors flex items-center gap-2 cursor-pointer mb-0.5"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>Convidar parceiro</span>
-                </button>
-
-                {/* Ver Mensagens SMS & Convites */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    onOpenNotifications?.();
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors flex items-center justify-between cursor-pointer mb-0.5"
-                >
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="w-3.5 h-3.5 text-neutral-400" />
-                    <span>Mensagens SMS & Convites</span>
-                  </div>
-                  {unreadNotificationsCount > 0 && (
-                    <span className="px-1.5 py-0.2 rounded-full text-[10px] font-bold bg-red-600 text-white">
-                      {unreadNotificationsCount}
-                    </span>
-                  )}
-                </button>
-
                 <button
                   type="button"
                   onClick={onOpenPricing}
@@ -321,18 +280,6 @@ export const Header: React.FC<HeaderProps> = ({
                 >
                   <Crown className="w-3.5 h-3.5 text-amber-500" />
                   <span>Gerir Plano & Recargas</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsUserMenuOpen(false);
-                    onOpenRegister?.();
-                  }}
-                  className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-700 dark:text-neutral-200 transition-colors flex items-center gap-2 cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Criar Nova Conta / Outro Utilizador</span>
                 </button>
 
                 <button

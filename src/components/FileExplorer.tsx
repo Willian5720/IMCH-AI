@@ -290,7 +290,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
           <div className="flex items-center gap-1.5 text-[10px] font-mono uppercase tracking-wider text-neutral-400">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span className="truncate max-w-[130px]">
-              {currentUser ? `Área de ${currentUser.name.split(' ')[0]}` : 'Área Privada'}
+              Explorador de Ficheiros
             </span>
           </div>
           {onNewProject && (
@@ -298,7 +298,7 @@ export const FileExplorer: React.FC<FileExplorerProps> = ({
               type="button"
               onClick={onNewProject}
               className="text-[10px] px-1.5 py-0.5 rounded bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition-colors cursor-pointer"
-              title="Criar novo projeto na sua área privada"
+              title="Criar novo projeto"
             >
               + Novo
             </button>

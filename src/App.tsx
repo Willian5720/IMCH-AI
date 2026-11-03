@@ -24,9 +24,6 @@ import {
   AuthModal 
 } from './components/AuthModal';
 import { 
-  AuthGate 
-} from './components/AuthGate';
-import { 
   PricingModal 
 } from './components/PricingModal';
 import { 
@@ -84,9 +81,9 @@ const createCleanStarterProject = (user?: UserProfile | null): Project => {
   const userName = user?.name ? user.name.split(' ')[0] : 'Convidado';
   const userPrefix = user?.id || 'guest';
   return {
-    id: `proj-private-${userPrefix}-${Date.now()}`,
-    name: user ? `Espaço Privado • ${userName}` : 'Novo Projeto IMCH',
-    description: user ? `Área reservada de desenvolvimento de ${user?.name}` : 'Ambiente limpo pronto para criação com IA',
+    id: `proj-${Date.now()}`,
+    name: 'Novo Projeto IMCH',
+    description: 'Ambiente pronto para criação',
     entryFile: '',
     activeFilePath: '',
     createdAt: new Date().toISOString(),
@@ -150,9 +147,13 @@ export default function App() {
     return unsub;
   }, []);
 
-  // OpenRouter Model selection & Modal (default to NVIDIA Nemotron 70B)
+  // OpenRouter Model selection & Modal (default to OpenRouter Auto)
   const [selectedModel, setSelectedModel] = useState<string>(() => {
-    return localStorage.getItem('imch_selected_model') || 'nvidia/llama-3.1-nemotron-70b-instruct';
+    const saved = localStorage.getItem('imch_selected_model');
+    if (!saved || saved.includes('nemotron-70b')) {
+      return 'openrouter/auto';
+    }
+    return saved;
   });
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
 
@@ -686,79 +687,6 @@ export default function App() {
     ? project.files[project.activeFilePath] 
     : Object.values(project.files)[0] || null;
   const isDraggingAny = isDraggingLeft || isDraggingRight;
-
-  // If no user is logged in (new visitor), show the Auth Portal Gate
-  if (!currentUser) {
-    return (
-      <div className="flex flex-col h-screen w-screen overflow-hidden bg-white dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 antialiased font-sans">
-        <Header
-          currentView="chat"
-          onSelectView={() => {
-            setAuthModalReason('Inicie sessão ou crie uma conta para aceder.');
-            setAuthModalMode('login');
-            setIsAuthModalOpen(true);
-          }}
-          theme={theme}
-          onToggleTheme={handleToggleTheme}
-          workspaceLayout={workspaceLayout}
-          onSelectLayout={setWorkspaceLayout}
-          onNewProject={() => {}}
-          onExportZip={() => {}}
-          onOpenGithub={() => {}}
-          user={null}
-          onOpenAuth={() => {
-            setAuthModalReason('Inicie sessão na sua conta.');
-            setAuthModalMode('login');
-            setIsAuthModalOpen(true);
-          }}
-          onOpenPricing={() => setIsPricingModalOpen(true)}
-          onLogout={() => {}}
-          selectedModel={selectedModel}
-          onOpenModelModal={() => setIsModelModalOpen(true)}
-          onOpenRegister={() => {
-            setAuthModalReason('Crie a sua conta para obter uma área reservada própria.');
-            setAuthModalMode('register');
-            setIsAuthModalOpen(true);
-          }}
-        />
-
-        <AuthGate
-          onOpenLogin={() => {
-            setAuthModalReason('Inicie sessão para aceder ao seu espaço reservado.');
-            setAuthModalMode('login');
-            setIsAuthModalOpen(true);
-          }}
-          onOpenRegister={() => {
-            setAuthModalReason('Crie a sua conta para obter a sua área reservada.');
-            setAuthModalMode('register');
-            setIsAuthModalOpen(true);
-          }}
-        />
-
-        <AuthModal
-          isOpen={isAuthModalOpen}
-          onClose={() => setIsAuthModalOpen(false)}
-          initialMode={authModalMode}
-          reason={authModalReason}
-          onSuccess={(loggedUser) => {
-            setCurrentUser(loggedUser);
-            setIsAuthModalOpen(false);
-          }}
-        />
-
-        <AIModelModal
-          isOpen={isModelModalOpen}
-          onClose={() => setIsModelModalOpen(false)}
-          selectedModel={selectedModel}
-          onSelectModel={(modelId) => {
-            setSelectedModel(modelId);
-            localStorage.setItem('imch_selected_model', modelId);
-            apiService.setActiveModel(modelId);
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className={`flex flex-col h-screen w-screen overflow-hidden bg-white dark:bg-[#050505] text-neutral-900 dark:text-neutral-100 antialiased font-sans transition-colors ${isDraggingAny ? 'select-none cursor-col-resize' : ''}`}>

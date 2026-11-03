@@ -51,6 +51,8 @@ interface ChatContact {
   avatarColor: string;
 }
 
+const DEFAULT_PARTNERS: ChatContact[] = [];
+
 export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   isOpen,
   onClose,
@@ -63,33 +65,72 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   onAcceptAndOpenProject,
 }) => {
   const activeUser = directUser || propCurrentUser || {
-    id: 'usr-guest',
-    name: 'Utilizador',
-    email: '',
-    plan: 'free',
-    credits: 0,
+    id: 'usr-imch-solucoes',
+    name: 'IMCH Soluções Digitais',
+    email: 'imchsolucoes@gmail.com',
+    plan: 'pro' as const,
+    credits: 99999,
     createdAt: new Date().toISOString(),
   };
 
-  const [actingAsUser, setActingAsUser] = useState<UserProfile>(activeUser);
-
-  useEffect(() => {
-    if (activeUser && activeUser.email) {
-      setActingAsUser(activeUser);
-    }
-  }, [activeUser.email]);
+  const actingAsUser = activeUser;
 
   const [activePartnerEmail, setActivePartnerEmail] = useState<string>('');
   const [messages, setMessages] = useState<DirectSMSMessage[]>([]);
-  const [contacts, setContacts] = useState<ChatContact[]>([]);
+  const [contacts, setContacts] = useState<ChatContact[]>(() => {
+    try {
+      const saved = localStorage.getItem('imch_real_chat_contacts');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
   const [searchQuery, setSearchQuery] = useState('');
   const [textInput, setTextInput] = useState('');
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isNewChatModalOpen, setIsNewChatModalOpen] = useState(false);
   const [newChatEmail, setNewChatEmail] = useState('');
   const [newChatName, setNewChatName] = useState('');
-  const [isAttachProjectOpen, setIsAttachProjectOpen] = useState(false);
   const [selectedProjectToAttach, setSelectedProjectToAttach] = useState<Project | null>(null);
+  const [isAttachProjectOpen, setIsAttachProjectOpen] = useState(false);
+
+  // New Chat & Project Share Tabs
+  const [newChatTab, setNewChatTab] = useState<'project' | 'chat'>('project');
+  const [selectedProjectIdToShare, setSelectedProjectIdToShare] = useState<string>('');
+  const [projectInviteMessage, setProjectInviteMessage] = useState<string>('');
+
+  const availableProjects: Project[] = React.useMemo(() => {
+    const list: Project[] = [];
+    if (currentProject && currentProject.id) {
+      list.push(currentProject);
+    }
+    if (Array.isArray(projects)) {
+      projects.forEach((p) => {
+        if (!list.some((existing) => existing.id === p.id)) {
+          list.push(p);
+        }
+      });
+    }
+    if (list.length === 0) {
+      list.push({
+        id: 'proj-current',
+        name: 'Projeto Principal',
+        description: 'Projeto web desenvolvido no IMCH AI Developer',
+        files: {},
+        entryFile: 'index.html',
+        activeFilePath: 'index.html',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      });
+    }
+    return list;
+  }, [currentProject, projects]);
+
+  useEffect(() => {
+    if (availableProjects.length > 0 && !selectedProjectIdToShare) {
+      setSelectedProjectIdToShare(availableProjects[0].id);
+    }
+  }, [availableProjects, selectedProjectIdToShare]);
 
   // Audio Voice Note Recording State
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
@@ -111,45 +152,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
     try {
       const allMsgs = await collaborationService.getDirectMessages(actingAsUser.email);
       setMessages(allMsgs);
-
-      // Dynamically assemble unique contacts from real messages
-      const myEmail = actingAsUser.email.toLowerCase();
-      const contactMap = new Map<string, ChatContact>();
-
-      allMsgs.forEach((m) => {
-        const isFromMe = m.fromEmail.toLowerCase() === myEmail;
-        const pEmail = isFromMe ? m.toEmail : m.fromEmail;
-        const pName = isFromMe ? m.toName : m.fromName;
-        const key = pEmail.toLowerCase();
-        const existing = contactMap.get(key);
-        const unreadCount = (!isFromMe && !m.read) ? ((existing?.unreadCount || 0) + 1) : (existing?.unreadCount || 0);
-
-        contactMap.set(key, {
-          name: pName || pEmail.split('@')[0],
-          email: pEmail,
-          plan: 'free',
-          lastMessageText: m.text,
-          lastMessageTime: m.timestamp,
-          unreadCount,
-          isOnline: true,
-          avatarColor: existing?.avatarColor || '#3b82f6',
-        });
-      });
-
-      const dynamicList = Array.from(contactMap.values());
-      setContacts((prev) => {
-        const merged = [...dynamicList];
-        prev.forEach((c) => {
-          if (!merged.some((m) => m.email.toLowerCase() === c.email.toLowerCase())) {
-            merged.push(c);
-          }
-        });
-        return merged;
-      });
-
-      if (!activePartnerEmail && dynamicList.length > 0) {
-        setActivePartnerEmail(dynamicList[0].email);
-      }
 
       // Mark messages from active partner as read
       if (activePartnerEmail) {
@@ -211,7 +213,7 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   const activePartner = contacts.find(
     (c) => c.email.toLowerCase() === activePartnerEmail.toLowerCase()
   ) || {
-    name: activePartnerEmail ? activePartnerEmail.split('@')[0] : 'Parceiro',
+    name: activePartnerEmail.split('@')[0],
     email: activePartnerEmail,
     plan: 'free' as const,
     unreadCount: 0,
@@ -222,7 +224,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
   // Send Direct SMS Message
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!activePartner.email) return;
     const content = textInput.trim();
     if (!content && !selectedProjectToAttach) return;
 
@@ -411,13 +412,84 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         isOnline: true,
         avatarColor: '#ec4899',
       };
-      setContacts((prev) => [newContact, ...prev]);
+      const updated = [newContact, ...contacts];
+      setContacts(updated);
+      try {
+        localStorage.setItem('imch_real_chat_contacts', JSON.stringify(updated));
+      } catch {}
     }
 
     setActivePartnerEmail(cleanEmail);
     setIsNewChatModalOpen(false);
     setNewChatEmail('');
     setNewChatName('');
+  };
+
+  // Handle Share Project directly via invite SMS
+  const handleShareProject = async () => {
+    if (!newChatEmail.trim()) return;
+    const cleanEmail = newChatEmail.toLowerCase().trim();
+    const projToShare = availableProjects.find((p) => p.id === selectedProjectIdToShare) || availableProjects[0];
+
+    const inviteId = `inv-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+    const inviteData = {
+      inviteId,
+      projectId: projToShare.id,
+      projectName: projToShare.name || 'Projeto IMCH',
+      projectDescription: projToShare.description || 'Projeto criado no IMCH AI Developer',
+      status: 'pending' as const,
+    };
+
+    const smsText = projectInviteMessage.trim() || `Olá! Convido-te a colaborar e editar o projeto "${projToShare.name}" comigo em tempo real.`;
+
+    const newSMS: DirectSMSMessage = {
+      id: `sms-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      fromEmail: actingAsUser.email,
+      fromName: actingAsUser.name || actingAsUser.email.split('@')[0],
+      toEmail: cleanEmail,
+      toName: newChatName.trim() || cleanEmail.split('@')[0],
+      text: smsText,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      createdAt: new Date().toISOString(),
+      read: false,
+      projectInvite: inviteData,
+    };
+
+    // Send through collaboration service
+    await collaborationService.sendInvite({
+      fromUser: actingAsUser,
+      toEmail: cleanEmail,
+      projectId: projToShare.id,
+      projectName: projToShare.name,
+      projectDescription: projToShare.description,
+      message: smsText,
+    });
+
+    await collaborationService.sendDirectSMS(newSMS);
+    setMessages((prev) => [...prev, newSMS]);
+
+    const existing = contacts.find((c) => c.email.toLowerCase() === cleanEmail);
+    if (!existing) {
+      const newContact: ChatContact = {
+        name: newChatName.trim() || cleanEmail.split('@')[0],
+        email: cleanEmail,
+        plan: 'free',
+        unreadCount: 0,
+        isOnline: true,
+        avatarColor: '#3b82f6',
+      };
+      const updated = [newContact, ...contacts];
+      setContacts(updated);
+      try {
+        localStorage.setItem('imch_real_chat_contacts', JSON.stringify(updated));
+      } catch {}
+    }
+
+    setActivePartnerEmail(cleanEmail);
+    setIsNewChatModalOpen(false);
+    setNewChatEmail('');
+    setNewChatName('');
+    setProjectInviteMessage('');
   };
 
   const filteredContacts = contacts.filter(
@@ -447,10 +519,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </div>
               <div className="truncate">
                 <div className="font-bold text-sm text-[#e9edef] truncate">
-                  {actingAsUser.name || 'Área Pessoal'}
+                  {actingAsUser.name}
                 </div>
                 <div className="text-[11px] text-[#8696a0] truncate font-mono">
-                  {actingAsUser.email || 'Sessão ativa'}
+                  {actingAsUser.email}
                 </div>
               </div>
             </div>
@@ -483,91 +555,86 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
 
           {/* Conversations List */}
           <div className="flex-1 overflow-y-auto divide-y divide-[#202c33]/40">
-            {filteredContacts.length === 0 ? (
-              <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-[#8696a0] h-64">
-                <MessageSquare className="w-10 h-10 mb-2 opacity-30 text-emerald-500" />
-                <p className="text-xs font-semibold text-[#e9edef] mb-1">Nenhuma conversa SMS ainda</p>
-                <p className="text-[11px] leading-relaxed mb-4 max-w-[220px]">
-                  Crie uma nova conversa com um parceiro conhecido pelo e-mail dele.
-                </p>
+            {filteredContacts.length === 0 && (
+              <div className="p-6 text-center text-[#8696a0] text-xs space-y-3">
+                <Users className="w-8 h-8 mx-auto text-[#8696a0]/50" />
+                <p>Nenhuma conversa iniciada ainda.</p>
                 <button
                   type="button"
                   onClick={() => setIsNewChatModalOpen(true)}
-                  className="px-3.5 py-1.5 rounded-lg bg-[#00a884] hover:bg-[#02906f] text-white text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+                  className="px-3 py-1.5 rounded-lg bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] font-semibold text-xs transition-colors cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Nova Conversa</span>
+                  Iniciar Conversa com Parceiro
                 </button>
               </div>
-            ) : (
-              filteredContacts.map((contact) => {
-                const isSelected = contact.email.toLowerCase() === activePartnerEmail.toLowerCase();
-                
-                // Find last message in this thread
-                const threadMsgs = messages.filter((m) => {
-                  const u = actingAsUser.email.toLowerCase();
-                  const p = contact.email.toLowerCase();
-                  return (
-                    (m.fromEmail.toLowerCase() === u && m.toEmail.toLowerCase() === p) ||
-                    (m.fromEmail.toLowerCase() === p && m.toEmail.toLowerCase() === u)
-                  );
-                });
-                const lastMsg = threadMsgs[threadMsgs.length - 1];
-                const snippet = lastMsg ? (lastMsg.audioData ? '🎤 Nota de voz' : lastMsg.text || 'Projeto partilhado') : (contact.lastMessageText || 'Conversa iniciada');
-                const time = lastMsg ? lastMsg.timestamp : (contact.lastMessageTime || '');
-
+            )}
+            {filteredContacts.map((contact) => {
+              const isSelected = contact.email.toLowerCase() === activePartnerEmail.toLowerCase();
+              
+              // Find last message in this thread
+              const threadMsgs = messages.filter((m) => {
+                const u = actingAsUser.email.toLowerCase();
+                const p = contact.email.toLowerCase();
                 return (
-                  <div
-                    key={contact.email}
-                    onClick={() => {
-                      setActivePartnerEmail(contact.email);
-                      collaborationService.markSMSAsRead(actingAsUser.email, contact.email);
-                    }}
-                    className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                      isSelected ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
-                    }`}
-                  >
-                    <div className="relative shrink-0">
-                      <div 
-                        className="w-12 h-12 rounded-full text-white font-bold flex items-center justify-center text-sm shadow-sm"
-                        style={{ backgroundColor: contact.avatarColor }}
-                      >
-                        {contact.name.slice(0, 1).toUpperCase()}
-                      </div>
-                      {contact.isOnline && (
-                        <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#111b21]"></span>
+                  (m.fromEmail.toLowerCase() === u && m.toEmail.toLowerCase() === p) ||
+                  (m.fromEmail.toLowerCase() === p && m.toEmail.toLowerCase() === u)
+                );
+              });
+              const lastMsg = threadMsgs[threadMsgs.length - 1];
+              const snippet = lastMsg ? (lastMsg.audioData ? '🎤 Nota de voz' : lastMsg.text || 'Projeto partilhado') : contact.lastMessageText;
+              const time = lastMsg ? lastMsg.timestamp : contact.lastMessageTime;
+
+              return (
+                <div
+                  key={contact.email}
+                  onClick={() => {
+                    setActivePartnerEmail(contact.email);
+                    collaborationService.markSMSAsRead(actingAsUser.email, contact.email);
+                  }}
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors ${
+                    isSelected ? 'bg-[#2a3942]' : 'hover:bg-[#202c33]/60'
+                  }`}
+                >
+                  <div className="relative shrink-0">
+                    <div 
+                      className="w-12 h-12 rounded-full text-white font-bold flex items-center justify-center text-sm shadow-sm"
+                      style={{ backgroundColor: contact.avatarColor }}
+                    >
+                      {contact.name.slice(0, 1).toUpperCase()}
+                    </div>
+                    {contact.isOnline && (
+                      <span className="absolute bottom-0 right-0 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[#111b21]"></span>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-0.5">
+                      <h4 className="text-sm font-semibold text-[#e9edef] truncate">
+                        {contact.name}
+                      </h4>
+                      <span className="text-[10px] text-[#8696a0] font-mono shrink-0 ml-1">
+                        {time}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-[#8696a0]">
+                      <p className="truncate text-[12px] flex items-center gap-1">
+                        {lastMsg && lastMsg.fromEmail.toLowerCase() === actingAsUser.email.toLowerCase() && (
+                          <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" />
+                        )}
+                        <span className="truncate">{snippet}</span>
+                      </p>
+
+                      {contact.unreadCount > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#00a884] text-white text-[10px] font-bold shrink-0">
+                          {contact.unreadCount}
+                        </span>
                       )}
                     </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
-                        <h4 className="text-sm font-semibold text-[#e9edef] truncate">
-                          {contact.name}
-                        </h4>
-                        <span className="text-[10px] text-[#8696a0] font-mono shrink-0 ml-1">
-                          {time}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs text-[#8696a0]">
-                        <p className="truncate text-[12px] flex items-center gap-1">
-                          {lastMsg && lastMsg.fromEmail.toLowerCase() === actingAsUser.email.toLowerCase() && (
-                            <CheckCheck className="w-3.5 h-3.5 text-[#53bdeb] shrink-0" />
-                          )}
-                          <span className="truncate">{snippet}</span>
-                        </p>
-
-                        {contact.unreadCount > 0 && (
-                          <span className="ml-1 px-1.5 py-0.5 rounded-full bg-[#00a884] text-white text-[10px] font-bold shrink-0">
-                            {contact.unreadCount}
-                          </span>
-                        )}
-                      </div>
-                    </div>
                   </div>
-                );
-              })
-            )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -575,68 +642,44 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
         {/* RIGHT PANEL: WHATSAPP ACTIVE CHAT THREAD CANVAS */}
         {/* ========================================================= */}
         <div className="flex-1 flex flex-col bg-[#0b141a] relative min-w-0">
-          {!activePartnerEmail ? (
-            <div className="flex-1 flex flex-col items-center justify-center p-8 text-center bg-[#111b21]">
-              <div className="w-16 h-16 rounded-full bg-[#202c33] flex items-center justify-center mb-4 text-[#00a884]">
-                <MessageSquare className="w-8 h-8" />
+          {/* Top Header of Active Chat */}
+          <div className="h-16 px-4 bg-[#202c33] flex items-center justify-between border-b border-[#222d34] shrink-0 z-10">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative shrink-0">
+                <div 
+                  className="w-10 h-10 rounded-full text-white font-bold flex items-center justify-center text-sm shadow-md"
+                  style={{ backgroundColor: activePartner.avatarColor }}
+                >
+                  {activePartner.name.slice(0, 1).toUpperCase()}
+                </div>
+                {activePartner.isOnline && (
+                  <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#202c33]"></span>
+                )}
               </div>
-              <h3 className="font-bold text-base text-[#e9edef] mb-1">IMChat • SMS Direto</h3>
-              <p className="text-xs text-[#8696a0] max-w-sm mb-6 leading-relaxed">
-                Envie mensagens SMS, notas de áudio e partilhe projetos para colaboração e edição de código em tempo real.
-              </p>
+
+              <div className="truncate">
+                <h3 className="font-bold text-sm text-[#e9edef] truncate flex items-center gap-2">
+                  <span>{activePartner.name}</span>
+                  {activePartner.plan === 'pro' && (
+                    <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                      PRO
+                    </span>
+                  )}
+                </h3>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setIsNewChatModalOpen(true)}
-                className="px-5 py-2.5 rounded-xl bg-[#00a884] hover:bg-[#02906f] text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-2 shadow-lg shadow-emerald-950/40"
+                onClick={onClose}
+                className="p-2 rounded-full hover:bg-[#374248] text-[#aebac1] hover:text-white transition-colors cursor-pointer"
+                title="Fechar Mensagens SMS"
               >
-                <Plus className="w-4 h-4" />
-                <span>Nova Conversa com Parceiro</span>
+                <X className="w-5 h-5" />
               </button>
             </div>
-          ) : (
-            <>
-              {/* Top Header of Active Chat */}
-              <div className="h-16 px-4 bg-[#202c33] flex items-center justify-between border-b border-[#222d34] shrink-0 z-10">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="relative shrink-0">
-                    <div 
-                      className="w-10 h-10 rounded-full text-white font-bold flex items-center justify-center text-sm shadow-md"
-                      style={{ backgroundColor: activePartner.avatarColor }}
-                    >
-                      {activePartner.name.slice(0, 1).toUpperCase()}
-                    </div>
-                    {activePartner.isOnline && (
-                      <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 border-2 border-[#202c33]"></span>
-                    )}
-                  </div>
-
-                  <div className="truncate">
-                    <h3 className="font-bold text-sm text-[#e9edef] truncate flex items-center gap-2">
-                      <span>{activePartner.name}</span>
-                      {activePartner.plan === 'pro' && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                          PRO
-                        </span>
-                      )}
-                    </h3>
-                    <p className="text-[11px] text-[#00a884] font-medium flex items-center gap-1.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-[#00a884] animate-pulse"></span>
-                      <span>online agora • SMS Direto</span>
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={onClose}
-                    className="p-2 rounded-full hover:bg-[#374248] text-[#aebac1] hover:text-white transition-colors cursor-pointer"
-                    title="Fechar Mensagens SMS"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+          </div>
 
           {/* Messages Canvas Area (WhatsApp wallpaper effect) */}
           <div 
@@ -645,12 +688,6 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               backgroundImage: 'radial-gradient(circle at center, rgba(16, 185, 129, 0.03) 0, rgba(0, 0, 0, 0) 100%)',
             }}
           >
-            {/* Date separator badge */}
-            <div className="flex justify-center my-2">
-              <span className="px-3 py-1 rounded-lg bg-[#182229] border border-[#222d34] text-[11px] font-semibold text-[#8696a0] uppercase tracking-wider shadow-xs">
-                Conversa SMS & Colaboração em Tempo Real
-              </span>
-            </div>
 
             {currentThread.length === 0 ? (
               <div className="p-8 text-center text-xs text-[#8696a0] space-y-2">
@@ -939,12 +976,10 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
               </form>
             )}
           </div>
-        </>
-      )}
-    </div>
-  </div>
+        </div>
+      </div>
 
-      {/* New Chat Modal: Direct invite to partner by registered email */}
+      {/* New Chat Modal: Direct invite or Project Sharing */}
       {isNewChatModalOpen && (
         <div 
           className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
@@ -955,69 +990,162 @@ export const NotificationsModal: React.FC<NotificationsModalProps> = ({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base flex items-center gap-2">
+              <div className="flex items-center gap-2">
                 <MessageSquare className="w-5 h-5 text-[#00a884]" />
-                <span>Nova Conversa SMS</span>
-              </h3>
+                <h3 className="font-bold text-base text-[#e9edef]">
+                  {newChatTab === 'project' ? 'Compartilhar Projeto' : 'Nova Conversa SMS'}
+                </h3>
+              </div>
               <button
                 type="button"
                 onClick={() => setIsNewChatModalOpen(false)}
-                className="text-[#8696a0] hover:text-white"
+                className="text-[#8696a0] hover:text-white p-1 rounded-lg hover:bg-[#2a3942] transition-colors cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <p className="text-xs text-[#8696a0]">
-              Insira o e-mail do parceiro que está registado no AI Developer para abrir uma conversa direta no estilo WhatsApp.
-            </p>
-
-            <div className="space-y-3">
-              <div>
-                <label className="block text-xs font-semibold text-[#8696a0] mb-1">
-                  E-mail do Parceiro:
-                </label>
-                <input
-                  type="email"
-                  value={newChatEmail}
-                  onChange={(e) => setNewChatEmail(e.target.value)}
-                  placeholder="ex: parceiro@imch.pt"
-                  className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#8696a0] mb-1">
-                  Nome (opcional):
-                </label>
-                <input
-                  type="text"
-                  value={newChatName}
-                  onChange={(e) => setNewChatName(e.target.value)}
-                  placeholder="ex: João Silva"
-                  className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-2 pt-2">
+            {/* Navigation Tabs */}
+            <div className="flex p-1 bg-[#111b21] rounded-xl border border-[#2a3942]/60">
               <button
                 type="button"
-                onClick={() => setIsNewChatModalOpen(false)}
-                className="px-4 py-2 rounded-lg text-xs text-[#8696a0] hover:text-white"
+                onClick={() => setNewChatTab('project')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  newChatTab === 'project'
+                    ? 'bg-[#00a884] text-white shadow-sm'
+                    : 'text-[#8696a0] hover:text-[#e9edef]'
+                }`}
               >
-                Cancelar
+                <FolderGit2 className="w-3.5 h-3.5" />
+                <span>Compartilhar Projeto</span>
               </button>
               <button
                 type="button"
-                onClick={handleStartNewChat}
-                disabled={!newChatEmail.trim()}
-                className="px-5 py-2 rounded-lg bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-40 text-white text-xs font-bold shadow-md cursor-pointer"
+                onClick={() => setNewChatTab('chat')}
+                className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                  newChatTab === 'chat'
+                    ? 'bg-[#00a884] text-white shadow-sm'
+                    : 'text-[#8696a0] hover:text-[#e9edef]'
+                }`}
               >
-                Iniciar Conversa
+                <MessageSquare className="w-3.5 h-3.5" />
+                <span>Conversa Direta</span>
               </button>
             </div>
+
+            {newChatTab === 'project' ? (
+              <div className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-[#8696a0] mb-1">
+                    E-mail do Amigo / Parceiro:
+                  </label>
+                  <input
+                    type="email"
+                    value={newChatEmail}
+                    onChange={(e) => setNewChatEmail(e.target.value)}
+                    placeholder="ex: parceiro@dev.imch.ao"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#8696a0] mb-1">
+                    Escolher Projeto a Compartilhar:
+                  </label>
+                  <select
+                    value={selectedProjectIdToShare}
+                    onChange={(e) => setSelectedProjectIdToShare(e.target.value)}
+                    className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white focus:outline-none focus:border-[#00a884] cursor-pointer"
+                  >
+                    {availableProjects.map((p) => (
+                      <option key={p.id} value={p.id} className="bg-[#111b21] text-white">
+                        {p.name || 'Projeto sem título'} {p.id === currentProject?.id ? '(Projeto Atual)' : ''}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#8696a0] mb-1">
+                    Mensagem de Convite SMS:
+                  </label>
+                  <input
+                    type="text"
+                    value={projectInviteMessage}
+                    onChange={(e) => setProjectInviteMessage(e.target.value)}
+                    placeholder="ex: Convido-te a colaborar e editar o projeto comigo"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewChatModalOpen(false)}
+                    className="px-4 py-2 rounded-lg text-xs text-[#8696a0] hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleShareProject}
+                    disabled={!newChatEmail.trim()}
+                    className="px-5 py-2 rounded-lg bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-40 text-white text-xs font-bold shadow-md cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Enviar Convite SMS</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3 pt-1">
+                <div>
+                  <label className="block text-xs font-semibold text-[#8696a0] mb-1">
+                    E-mail do Parceiro:
+                  </label>
+                  <input
+                    type="email"
+                    value={newChatEmail}
+                    onChange={(e) => setNewChatEmail(e.target.value)}
+                    placeholder="ex: parceiro@imch.pt"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-[#8696a0] mb-1">
+                    Nome (opcional):
+                  </label>
+                  <input
+                    type="text"
+                    value={newChatName}
+                    onChange={(e) => setNewChatName(e.target.value)}
+                    placeholder="ex: João Silva"
+                    className="w-full px-3 py-2 rounded-lg bg-[#111b21] border border-[#2a3942] text-sm text-white placeholder-[#8696a0] focus:outline-none focus:border-[#00a884]"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsNewChatModalOpen(false)}
+                    className="px-4 py-2 rounded-lg text-xs text-[#8696a0] hover:text-white"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleStartNewChat}
+                    disabled={!newChatEmail.trim()}
+                    className="px-5 py-2 rounded-lg bg-[#00a884] hover:bg-[#008f6f] disabled:opacity-40 text-white text-xs font-bold shadow-md cursor-pointer"
+                  >
+                    Iniciar Conversa
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

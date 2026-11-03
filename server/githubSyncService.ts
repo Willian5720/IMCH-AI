@@ -80,6 +80,12 @@ class GitHubSyncService {
     return this.token;
   }
 
+  public setRepoUrl(url: string) {
+    if (url && typeof url === 'string') {
+      this.repoUrl = url.trim();
+    }
+  }
+
   public setAutoSync(enabled: boolean, intervalSeconds = 45) {
     this.autoSyncEnabled = enabled;
     this.autoSyncIntervalSeconds = Math.max(15, intervalSeconds);

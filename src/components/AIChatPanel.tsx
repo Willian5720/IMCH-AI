@@ -53,21 +53,8 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
     {
       id: 'welcome',
       role: 'assistant',
-      content: `Olá! Sou o assistente de desenvolvimento do **IMCH AI Developer**. 🚀
-
-O ambiente está completamente limpo e pronto para criar.
-Qual website ou aplicação você gostaria de criar hoje?
-Por exemplo:
-- **Site de Padaria / Restaurante** com catálogo de produtos e contactos
-- **Aplicação em React 18** com componentes, hooks e interatividade
-- **Landing Page Corporativa** com formulário interativo e estética moderna
-- **Loja Virtual ou E-Commerce** com carrinho e catálogo de produtos
-- **Dashboard Web** com métricas e visualização de dados
-
-Descreva o que imagina ou envie o seu prompt e eu analisarei a ideia, criarei pasta por pasta e ficheiro por ficheiro, exibindo tudo em tempo real!`,
+      content: 'Olá! Como posso ajudar no seu projeto hoje?',
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      provider: 'openrouter',
-      model: 'MiniMax M3.1',
     },
   ]);
 
@@ -96,8 +83,6 @@ Descreva o que imagina ou envie o seu prompt e eu analisarei a ideia, criarei pa
       setInput(voice.liveTranscript);
     }
   }, [voice.liveTranscript]);
-
-  const speakText = voice.speakText;
 
   const toggleVoiceMode = () => {
     if (voice.isVoiceModeActive) {
@@ -186,7 +171,6 @@ Escreva abaixo o seu prompt e eu analisarei a sua ideia, criarei pasta por pasta
         };
         setMessages((prev) => [...prev, placeholderMsg]);
         await streamTypewriter(assistantMsgId, greetingReply, 15);
-        speakText('Olá! Qual website ou aplicação gostaria de criar hoje?');
         setIsLoading(false);
         return;
       }
@@ -251,7 +235,6 @@ Escreva abaixo o seu prompt e eu analisarei a sua ideia, criarei pasta por pasta
         };
         setMessages((prev) => [...prev, placeholderMsg]);
         await streamTypewriter(assistantMsgId, res.reply, 18);
-        speakText(res.reply);
         return;
       }
 
@@ -351,7 +334,6 @@ Todas as pastas e ficheiros já se encontram no explorador à esquerda e a aplic
 
         // Calm typewriter streaming so the user reads peacefully
         await streamTypewriter(assistantMsgId, fullExplanation, 16);
-        speakText(`Projeto ${res.projectName} criado com sucesso.`);
         return;
       }
 
@@ -380,7 +362,6 @@ Todas as pastas e ficheiros já se encontram no explorador à esquerda e a aplic
       };
       setMessages((prev) => [...prev, placeholderMsg]);
       await streamTypewriter(assistantMsgId, chatRes.reply, 18);
-      speakText(chatRes.reply);
     } catch (error: any) {
       setGeneratingProgress(null);
       const errorMsg: ChatMessage = {
@@ -425,22 +406,17 @@ Todas as pastas e ficheiros já se encontram no explorador à esquerda e a aplic
                 {
                   id: 'welcome-' + Date.now(),
                   role: 'assistant',
-                  content: `Nova sessão iniciada no **IMCH AI Developer**! 🚀\n\nQual website ou aplicação você gostaria de criar hoje? Descreva o seu projeto ou envie um prompt para começar a gerar o código!`,
+                  content: 'Nova sessão iniciada. Em que posso ajudar no seu projeto?',
                   timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                  provider: 'openrouter',
-                  model: 'MiniMax M3.1',
                 },
               ]);
             }}
             className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium text-neutral-600 dark:text-neutral-300 hover:text-neutral-900 dark:hover:text-white bg-neutral-200/60 dark:bg-neutral-800/60 hover:bg-neutral-200 dark:hover:bg-neutral-800 transition-colors cursor-pointer"
-            title="Iniciar uma nova conversa no AI Developer"
+            title="Iniciar uma nova conversa"
           >
             <RotateCcw className="w-2.5 h-2.5" />
             <span>Nova Conversa</span>
           </button>
-          <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-950/60 text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-900/60">
-            OpenRouter
-          </span>
         </div>
       </div>
 
