@@ -86,14 +86,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }
   };
 
-  const handleUseDemoAccount = () => {
-    const res = authService.login('dev@imch.ao', '123456');
-    if (res.success && res.user) {
-      onSuccess?.(res.user);
-      onClose();
-    }
-  };
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
       <div 
@@ -245,17 +237,6 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             <span>{mode === 'register' ? 'Criar Conta Gratuita' : 'Iniciar Sessão'}</span>
             <ArrowRight className="w-4 h-4" />
           </button>
-
-          {/* Demo account shortcut */}
-          <div className="pt-2 border-t border-neutral-200 dark:border-neutral-800 text-center">
-            <button
-              type="button"
-              onClick={handleUseDemoAccount}
-              className="text-[11px] text-neutral-500 hover:text-blue-500 dark:hover:text-blue-400 underline cursor-pointer"
-            >
-              Usar conta de demonstração rápida (dev@imch.ao)
-            </button>
-          </div>
         </form>
 
         {/* Perks Footer */}

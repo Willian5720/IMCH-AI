@@ -34,7 +34,6 @@ interface HeaderProps {
   onOpenInvitePartner?: () => void;
   onOpenNotifications?: () => void;
   unreadNotificationsCount?: number;
-  onSwitchUser?: (email: string) => void;
   onOpenRegister?: () => void;
 }
 
@@ -57,7 +56,6 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenInvitePartner,
   onOpenNotifications,
   unreadNotificationsCount = 0,
-  onSwitchUser,
   onOpenRegister,
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);

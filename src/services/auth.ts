@@ -1,8 +1,5 @@
 import { UserProfile } from '../types';
 
-const AUTH_USER_STORAGE_KEY = 'imch_auth_current_user';
-const USERS_DB_STORAGE_KEY = 'imch_registered_users_db';
-
 // Storage keys
 const AUTH_USER_STORAGE_KEY = 'imch_auth_current_user';
 const USERS_DB_STORAGE_KEY = 'imch_registered_users_db';

@@ -715,7 +715,6 @@ export default function App() {
           onLogout={() => {}}
           selectedModel={selectedModel}
           onOpenModelModal={() => setIsModelModalOpen(true)}
-          onSwitchUser={(email) => authService.quickSwitchAccount(email)}
           onOpenRegister={() => {
             setAuthModalReason('Crie a sua conta para obter uma área reservada própria.');
             setAuthModalMode('register');
@@ -800,7 +799,6 @@ export default function App() {
         }}
         selectedModel={selectedModel}
         onOpenModelModal={() => setIsModelModalOpen(true)}
-        onSwitchUser={(email) => authService.quickSwitchAccount(email)}
         onOpenRegister={() => {
           setAuthModalReason('Crie uma nova conta com área reservada própria.');
           setAuthModalMode('register');

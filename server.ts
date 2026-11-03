@@ -9,6 +9,7 @@ import { ImageSearchService } from './server/imageSearchService';
 import { ProjectArchitectureEngine } from './src/services/architectureEngine';
 import { ProjectQualityEngine } from './src/services/qualityEngine';
 import { collaborationHub } from './server/collaborationHub';
+import { githubSyncService } from './server/githubSyncService';
 
 dotenv.config();
 
@@ -56,6 +57,74 @@ app.post('/api/openrouter/set-model', (req, res) => {
     return res.json({ success: true, activeModel: currentActiveModel });
   }
   return res.status(400).json({ error: 'Modelo inválido fornecido.' });
+});
+
+// ==========================================
+// API: GITHUB REAL-TIME SYNCHRONIZATION
+// ==========================================
+app.get('/api/github/status', async (req, res) => {
+  try {
+    const status = await githubSyncService.getStatus();
+    res.json(status);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message || 'Falha ao obter estado do GitHub.' });
+  }
+});
+
+app.post('/api/github/pull', async (req, res) => {
+  try {
+    const { token } = req.body;
+    const result = await githubSyncService.pull(token);
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Erro ao sincronizar do GitHub.' });
+  }
+});
+
+app.post('/api/github/push', async (req, res) => {
+  try {
+    const { message, token, authorName, authorEmail } = req.body;
+    const result = await githubSyncService.push({ message, token, authorName, authorEmail });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Erro ao enviar para o GitHub.' });
+  }
+});
+
+app.post('/api/github/sync', async (req, res) => {
+  try {
+    const { message, token, authorName, authorEmail } = req.body;
+    const result = await githubSyncService.syncAll({ message, token, authorName, authorEmail });
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ success: false, message: err.message || 'Erro na sincronização completa.' });
+  }
+});
+
+app.post('/api/github/configure', (req, res) => {
+  try {
+    const { token, autoSync, intervalSeconds } = req.body;
+    if (typeof token === 'string') {
+      githubSyncService.setToken(token);
+    }
+    if (typeof autoSync === 'boolean') {
+      githubSyncService.setAutoSync(autoSync, intervalSeconds);
+    }
+    res.json({ success: true, message: 'Configuração do GitHub atualizada com sucesso.' });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GitHub Webhook for real-time push events from github.com
+app.post('/api/github/webhook', async (req, res) => {
+  try {
+    console.log('[GitHub Webhook] Push event recebido do GitHub! A sincronizar em tempo real...');
+    githubSyncService.pull().catch((e) => console.error('[GitHub Webhook] Erro ao sincronizar:', e));
+    res.json({ received: true, message: 'Webhook processado e sincronização disparada.' });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // API: Detailed key info and available intelligences

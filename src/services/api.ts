@@ -234,6 +234,88 @@ class ApiService {
     }
     return await res.json();
   }
+
+  // ==========================================
+  // GITHUB REAL-TIME SYNCHRONIZATION CLIENT
+  // ==========================================
+  async getGitHubStatus(): Promise<{
+    connected: boolean;
+    repoUrl: string;
+    repoName: string;
+    branch: string;
+    currentCommit: {
+      hash: string;
+      shortHash: string;
+      message: string;
+      author: string;
+      date: string;
+    } | null;
+    hasToken: boolean;
+    autoSyncEnabled: boolean;
+    autoSyncIntervalSeconds: number;
+    lastSyncedAt: string | null;
+    uncommittedChanges: number;
+    uncommittedFiles: string[];
+    isSyncing: boolean;
+    lastError: string | null;
+    lastLog: string | null;
+  }> {
+    const res = await fetch('/api/github/status');
+    if (!res.ok) {
+      throw new Error('Falha ao obter estado do GitHub');
+    }
+    return await res.json();
+  }
+
+  async pullGitHub(token?: string): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/github/pull', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token }),
+    });
+    return await res.json();
+  }
+
+  async pushGitHub(payload: {
+    message?: string;
+    token?: string;
+    authorName?: string;
+    authorEmail?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/github/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  }
+
+  async syncGitHub(payload?: {
+    message?: string;
+    token?: string;
+    authorName?: string;
+    authorEmail?: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/github/sync', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {}),
+    });
+    return await res.json();
+  }
+
+  async configureGitHub(payload: {
+    token?: string;
+    autoSync?: boolean;
+    intervalSeconds?: number;
+  }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch('/api/github/configure', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    return await res.json();
+  }
 }
 
 export const apiService = new ApiService();
